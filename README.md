@@ -38,7 +38,9 @@
 - **Custom Coordinates**: Set precise latitude and longitude.
 - **Altitude and Accuracy Settings**: Customize altitude, accuracy and other custom sensor values.
 - **Randomization**: Add random offsets within a specified radius for enhanced privacy.
-- **User-Friendly Interface**: Intuitive design for easy configuration.
+- **User-Friendly Interface**: Modern Material Design 3 UI built with Jetpack Compose.
+- **Intuitive Navigation**: Easy access to maps, favorite locations, and settings.
+- **Community Integration**: Direct links to Telegram, Discord, and GitHub communities.
 
 ---
 
@@ -93,12 +95,20 @@ You can always install the latest stable version from the releases page. If you 
 
    - Open **XposedFakeLocation** from your app drawer.
 
-2. **Select a Location**
+2. **Navigate the Interface**
+
+   - Use the navigation drawer to access different sections:
+     - **Map**: Primary interface for location selection
+     - **Favorites**: Saved locations for quick access
+     - **Settings**: Configure application behavior
+     - **About**: View application information
+
+3. **Select a Location**
 
    - Use the integrated map to select your desired location.
    - Tap on the map to set the fake location.
 
-3. **Configure Settings**
+4. **Configure Settings**
 
    - Access the **Settings** screen to customize:
 
@@ -107,12 +117,12 @@ You can always install the latest stable version from the releases page. If you 
      - **Other Sensor Data**: New spoofable sensors data added in new versions.
      - **Randomization Radius**: Set the radius in meters for location randomization.
 
-4. **Start Spoofing**
+5. **Start Spoofing**
 
    - Toggle the **Start** button to begin location spoofing.
-   - The app will now override your device's location data based on the target(s) specified in the Xpsoed manager app.
+   - The app will now override your device's location data based on the target(s) specified in the Xposed manager app.
 
-5. **Stop Spoofing**
+6. **Stop Spoofing**
 
    - Toggle the **Stop** button to cease location spoofing.
 
@@ -123,6 +133,7 @@ You can always install the latest stable version from the releases page. If you 
 - Save frequently used locations for quick access.
 - If a marker is already present on the map, the coordinates for the new favorite location will automatically be copied to the fields from it.
 - Manage your favorites by adding or removing locations.
+- Access your favorites through the navigation drawer for easy selection.
 
 ---
 
@@ -131,14 +142,22 @@ You can always install the latest stable version from the releases page. If you 
 ### **Built With**
 
 - **Kotlin**: Programming language for Android development.
-- **Jetpack Compose**: Modern toolkit for building native Android UI.
+- **Jetpack Compose**: Modern toolkit for building native Android UI with Material Design 3.
+- **Material 3 Design**: Latest design system from Google for an enhanced user experience.
 - **Xposed API**: Framework for runtime modification of system and app behavior.
 - **OSMDroid**: Open-source map rendering engine for Android.
 
+### **User Interface**
+
+- **Navigation Drawer**: Easy access to all major app features
+- **Material Design Components**: Consistent design language throughout the app
+- **Adaptive Layouts**: Compatible with various screen sizes and orientations
+
 ### **Prerequisites**
 
-- **Android Studio Arctic Fox** or newer.
+- **Android Studio Flamingo** or newer.
 - **Android SDK** with API level 31 or above.
+- **Kotlin** version 1.8.0 or above.
 
 ### **Building from Source**
 
@@ -172,7 +191,7 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for more informati
 
 ## **Disclaimer**
 
-This application is intended for **development and testing purposes only**. Misuse of location spoofing can violate terms of service of other applications and services. Use at your own risk. There is no reposnsability whatsoever for any damage to the device.
+This application is intended for **development and testing purposes only**. Misuse of location spoofing can violate terms of service of other applications and services. Use at your own risk. There is no responsibility whatsoever for any damage to the device.
 
 ---
 
@@ -181,6 +200,9 @@ This application is intended for **development and testing purposes only**. Misu
 - [GpsSetter](https://github.com/Android1500/GpsSetter) - Highly inspired by this amazing project!
 - [Xposed Framework](https://repo.xposed.info/) - Java hooks
 - [LSPosed](https://github.com/LSPosed/LSPosed) - The go-to Xposed framework manager app.
-- [OSMDroid](https://github.com/osmdroid/osmdroid) - Open-Source offline map interface.
+- [OSMDroid](https://github.com/osmdroid/osmdroid) - Open-source offline map interface.
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) - Modern UI toolkit for Android.
+- [Material Design 3](https://m3.material.io/) - Latest design system from Google.
+- [Line Awesome Icons](https://icons8.com/line-awesome) - Beautiful icon set used in the app.
 
 
