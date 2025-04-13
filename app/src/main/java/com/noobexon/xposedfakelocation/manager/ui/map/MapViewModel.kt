@@ -77,14 +77,33 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private val _centerMapEvent = MutableSharedFlow<Unit>()
     val centerMapEvent: SharedFlow<Unit> = _centerMapEvent.asSharedFlow()
 
+    init {
+        viewModelScope.launch {
+            // Load initial isPlaying state
+            preferencesRepository.getIsPlayingFlow().collectLatest { isPlaying ->
+                _uiState.update { it.copy(isPlaying = isPlaying) }
+            }
+        }
+        
+        viewModelScope.launch {
+            // Load initial lastClickedLocation
+            preferencesRepository.getLastClickedLocationFlow().collectLatest { location ->
+                val geoPoint = location?.let { GeoPoint(it.latitude, it.longitude) }
+                _uiState.update { it.copy(lastClickedLocation = geoPoint) }
+            }
+        }
+    }
+
     fun togglePlaying() {
         val currentIsPlaying = !_uiState.value.isPlaying
         _uiState.update { it.copy(isPlaying = currentIsPlaying) }
         
-        if (!currentIsPlaying) {
-            updateClickedLocation(null)
+        viewModelScope.launch {
+            if (!currentIsPlaying) {
+                updateClickedLocation(null)
+            }
+            preferencesRepository.saveIsPlaying(currentIsPlaying)
         }
-        preferencesRepository.saveIsPlaying(currentIsPlaying)
     }
 
     fun updateUserLocation(location: GeoPoint) {
@@ -94,16 +113,20 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun updateClickedLocation(geoPoint: GeoPoint?) {
         _uiState.update { it.copy(lastClickedLocation = geoPoint) }
         
-        geoPoint?.let {
-            preferencesRepository.saveLastClickedLocation(
-                it.latitude,
-                it.longitude
-            )
-        } ?: preferencesRepository.clearLastClickedLocation()
+        viewModelScope.launch {
+            geoPoint?.let {
+                preferencesRepository.saveLastClickedLocation(
+                    it.latitude,
+                    it.longitude
+                )
+            } ?: preferencesRepository.clearLastClickedLocation()
+        }
     }
 
     fun addFavoriteLocation(favoriteLocation: FavoriteLocation) {
-        preferencesRepository.addFavorite(favoriteLocation)
+        viewModelScope.launch {
+            preferencesRepository.addFavorite(favoriteLocation)
+        }
     }
 
     // Update specific fields in the FavoritesInputState
@@ -158,18 +181,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     // Set loading finished
     fun setLoadingFinished() {
-        val isPlaying = preferencesRepository.getIsPlaying()
-        val lastClickedLocation = preferencesRepository.getLastClickedLocation()?.let {
-            GeoPoint(it.latitude, it.longitude)
-        }
-        
-        _uiState.update { 
-            it.copy(
-                loadingState = LoadingState.Loaded,
-                isPlaying = isPlaying,
-                lastClickedLocation = lastClickedLocation
-            )
-        }
+        _uiState.update { it.copy(loadingState = LoadingState.Loaded) }
     }
 
     // Dialog show/hide logic
@@ -215,18 +227,27 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     // Clear GoToPoint inputs
     fun clearGoToPointInputs() {
-        _uiState.update { it.copy(goToPointState = InputFieldState() to InputFieldState()) }
+        _uiState.update { 
+            it.copy(goToPointState = InputFieldState() to InputFieldState())
+        }
     }
 
     // Prefill AddToFavorites latitude/longitude with marker values (if available)
     fun prefillCoordinatesFromMarker(latitude: Double?, longitude: Double?) {
-        val currentState = _uiState.value.addToFavoritesState
-        val updatedState = currentState.copy(
-            latitude = currentState.latitude.copy(value = latitude?.toString() ?: ""),
-            longitude = currentState.longitude.copy(value = longitude?.toString() ?: "")
-        )
-        
-        _uiState.update { it.copy(addToFavoritesState = updatedState) }
+        if (latitude != null && longitude != null) {
+            val latField = InputFieldState(value = latitude.toString())
+            val lngField = InputFieldState(value = longitude.toString())
+            
+            _uiState.update { currentState ->
+                val favState = currentState.addToFavoritesState
+                currentState.copy(
+                    addToFavoritesState = favState.copy(
+                        latitude = latField,
+                        longitude = lngField
+                    )
+                )
+            }
+        }
     }
 
     // Validate and add favorite location

@@ -4,131 +4,272 @@ package com.noobexon.xposedfakelocation.data.repository
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import com.noobexon.xposedfakelocation.data.*
 import com.noobexon.xposedfakelocation.data.model.FavoriteLocation
 import com.noobexon.xposedfakelocation.data.model.LastClickedLocation
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import java.io.IOException
 
-class PreferencesRepository(context: Context) {
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = SHARED_PREFS_FILE)
+
+class PreferencesRepository(private val context: Context) {
     private val tag = "PreferencesRepository"
-
+    
+    // Legacy SharedPreferences for Xposed Module compatibility
     @SuppressLint("WorldReadableFiles")
     private val sharedPrefs = try {
         context.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_WORLD_READABLE)
     } catch (e: SecurityException) {
-        context.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE) // Fallback to MODE_PRIVATE
+        Log.w(tag, "MODE_WORLD_READABLE not available: ${e.message}")
+        context.getSharedPreferences(SHARED_PREFS_FILE, Context.MODE_PRIVATE)
     }
 
     private val gson = Gson()
 
-    // Is Playing
-    fun saveIsPlaying(isPlaying: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_IS_PLAYING, isPlaying)
-            .apply()
-        Log.d(tag, "Saved IsPlaying: $isPlaying")
+    // DataStore preference keys
+    private object PreferenceKeys {
+        val IS_PLAYING = booleanPreferencesKey(KEY_IS_PLAYING)
+        val LAST_CLICKED_LOCATION = stringPreferencesKey(KEY_LAST_CLICKED_LOCATION)
+        val USE_ACCURACY = booleanPreferencesKey(KEY_USE_ACCURACY)
+        val ACCURACY = doublePreferencesKey(KEY_ACCURACY)
+        val USE_ALTITUDE = booleanPreferencesKey(KEY_USE_ALTITUDE)
+        val ALTITUDE = doublePreferencesKey(KEY_ALTITUDE)
+        val USE_RANDOMIZE = booleanPreferencesKey(KEY_USE_RANDOMIZE)
+        val RANDOMIZE_RADIUS = doublePreferencesKey(KEY_RANDOMIZE_RADIUS)
+        val USE_VERTICAL_ACCURACY = booleanPreferencesKey(KEY_USE_VERTICAL_ACCURACY)
+        val VERTICAL_ACCURACY = floatPreferencesKey(KEY_VERTICAL_ACCURACY)
+        val USE_MEAN_SEA_LEVEL = booleanPreferencesKey(KEY_USE_MEAN_SEA_LEVEL)
+        val MEAN_SEA_LEVEL = doublePreferencesKey(KEY_MEAN_SEA_LEVEL)
+        val USE_MEAN_SEA_LEVEL_ACCURACY = booleanPreferencesKey(KEY_USE_MEAN_SEA_LEVEL_ACCURACY)
+        val MEAN_SEA_LEVEL_ACCURACY = floatPreferencesKey(KEY_MEAN_SEA_LEVEL_ACCURACY)
+        val USE_SPEED = booleanPreferencesKey(KEY_USE_SPEED)
+        val SPEED = floatPreferencesKey(KEY_SPEED)
+        val USE_SPEED_ACCURACY = booleanPreferencesKey(KEY_USE_SPEED_ACCURACY)
+        val SPEED_ACCURACY = floatPreferencesKey(KEY_SPEED_ACCURACY)
+        val FAVORITES = stringPreferencesKey(KEY_FAVORITES)
     }
 
+    // Generic helper for DataStore flows with error handling
+    private fun <T> getPreferenceFlow(key: Preferences.Key<T>, defaultValue: T): Flow<T> {
+        return context.dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    Log.e(tag, "Error reading preferences: ${exception.message}")
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                preferences[key] ?: defaultValue
+            }
+    }
+
+    // Helper to write both to DataStore and legacy SharedPreferences
+    private suspend inline fun <reified T> savePreference(
+        key: Preferences.Key<T>,
+        value: T,
+        sharedPrefsKey: String,
+        sharedPrefsValue: Any
+    ) {
+        try {
+            // Save to DataStore
+            context.dataStore.edit { preferences ->
+                preferences[key] = value
+            }
+            
+            // Save to legacy SharedPreferences for Xposed Module
+            when (value) {
+                is Boolean -> sharedPrefs.edit().putBoolean(sharedPrefsKey, value).apply()
+                is String -> sharedPrefs.edit().putString(sharedPrefsKey, value).apply()
+                is Float -> sharedPrefs.edit().putFloat(sharedPrefsKey, value).apply()
+                is Double -> {
+                    val bits = java.lang.Double.doubleToRawLongBits(value)
+                    sharedPrefs.edit().putLong(sharedPrefsKey, bits).apply()
+                }
+                is Long -> sharedPrefs.edit().putLong(sharedPrefsKey, value).apply()
+                is Int -> sharedPrefs.edit().putInt(sharedPrefsKey, value).apply()
+            }
+            
+            Log.d(tag, "Saved $sharedPrefsKey: $value")
+        } catch (e: Exception) {
+            Log.e(tag, "Error saving preference $sharedPrefsKey: ${e.message}")
+        }
+    }
+
+    // Is Playing
+    fun getIsPlayingFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.IS_PLAYING, DEFAULT_USE_ACCURACY)
+    }
+    
+    suspend fun saveIsPlaying(isPlaying: Boolean) {
+        savePreference(PreferenceKeys.IS_PLAYING, isPlaying, KEY_IS_PLAYING, isPlaying)
+    }
+    
+    // For backward compatibility
     fun getIsPlaying(): Boolean {
-        return sharedPrefs.getBoolean(KEY_IS_PLAYING, false) // Default to false if not set
+        return sharedPrefs.getBoolean(KEY_IS_PLAYING, false)
     }
 
     // Last Clicked Location
-    fun saveLastClickedLocation(latitude: Double, longitude: Double) {
-        val location = LastClickedLocation(latitude, longitude)
-        val json = gson.toJson(location)
-        sharedPrefs.edit()
-            .putString(KEY_LAST_CLICKED_LOCATION, json)
-            .apply()
-        Log.d(tag, "Saved LastClickedLocation: $json")
+    fun getLastClickedLocationFlow(): Flow<LastClickedLocation?> {
+        return context.dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    Log.e(tag, "Error reading preferences: ${exception.message}")
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                val json = preferences[PreferenceKeys.LAST_CLICKED_LOCATION]
+                if (json != null) {
+                    try {
+                        gson.fromJson(json, LastClickedLocation::class.java)
+                    } catch (e: JsonSyntaxException) {
+                        Log.e(tag, "Error parsing LastClickedLocation: ${e.message}")
+                        null
+                    }
+                } else {
+                    null
+                }
+            }
     }
-
+    
+    suspend fun saveLastClickedLocation(latitude: Double, longitude: Double) {
+        try {
+            val location = LastClickedLocation(latitude, longitude)
+            val json = gson.toJson(location)
+            savePreference(PreferenceKeys.LAST_CLICKED_LOCATION, json, KEY_LAST_CLICKED_LOCATION, json)
+        } catch (e: Exception) {
+            Log.e(tag, "Error saving LastClickedLocation: ${e.message}")
+        }
+    }
+    
+    // For backward compatibility
     fun getLastClickedLocation(): LastClickedLocation? {
         val json = sharedPrefs.getString(KEY_LAST_CLICKED_LOCATION, null)
         return if (json != null) {
-            gson.fromJson(json, LastClickedLocation::class.java)
+            try {
+                gson.fromJson(json, LastClickedLocation::class.java)
+            } catch (e: JsonSyntaxException) {
+                Log.e(tag, "Error parsing LastClickedLocation: ${e.message}")
+                null
+            }
         } else {
             null
         }
     }
 
-    fun clearLastClickedLocation() {
-        sharedPrefs.edit()
-            .remove(KEY_LAST_CLICKED_LOCATION)
-            .apply()
-        saveIsPlaying(false)
-        Log.d(tag, "Cleared 'LastClickedLocation' from shared preferences and set 'IsPlaying' to false")
+    suspend fun clearLastClickedLocation() {
+        try {
+            context.dataStore.edit { preferences ->
+                preferences.remove(PreferenceKeys.LAST_CLICKED_LOCATION)
+            }
+            
+            sharedPrefs.edit()
+                .remove(KEY_LAST_CLICKED_LOCATION)
+                .apply()
+                
+            saveIsPlaying(false)
+            Log.d(tag, "Cleared 'LastClickedLocation' from preferences and set 'IsPlaying' to false")
+        } catch (e: Exception) {
+            Log.e(tag, "Error clearing LastClickedLocation: ${e.message}")
+        }
     }
 
-    // Settings
-    fun saveUseAccuracy(useAccuracy: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_ACCURACY, useAccuracy)
-            .apply()
-        Log.d(tag, "Saved UseAccuracy: $useAccuracy")
+    // Use Accuracy
+    fun getUseAccuracyFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_ACCURACY, DEFAULT_USE_ACCURACY)
     }
-
+    
+    suspend fun saveUseAccuracy(useAccuracy: Boolean) {
+        savePreference(PreferenceKeys.USE_ACCURACY, useAccuracy, KEY_USE_ACCURACY, useAccuracy)
+    }
+    
+    // For backward compatibility
     fun getUseAccuracy(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_ACCURACY, DEFAULT_USE_ACCURACY)
     }
 
-    fun saveAccuracy(accuracy: Double) {
-        val bits = java.lang.Double.doubleToRawLongBits(accuracy)
-        sharedPrefs.edit()
-            .putLong(KEY_ACCURACY, bits)
-            .apply()
-        Log.d(tag, "Saved Accuracy: $accuracy")
+    // Accuracy
+    fun getAccuracyFlow(): Flow<Double> {
+        return getPreferenceFlow(PreferenceKeys.ACCURACY, DEFAULT_ACCURACY)
     }
-
+    
+    suspend fun saveAccuracy(accuracy: Double) {
+        savePreference(PreferenceKeys.ACCURACY, accuracy, KEY_ACCURACY, accuracy)
+    }
+    
+    // For backward compatibility
     fun getAccuracy(): Double {
         val bits = sharedPrefs.getLong(KEY_ACCURACY, java.lang.Double.doubleToRawLongBits(DEFAULT_ACCURACY))
         return java.lang.Double.longBitsToDouble(bits)
     }
 
-    fun saveUseAltitude(useAltitude: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_ALTITUDE, useAltitude)
-            .apply()
-        Log.d(tag, "Saved UseAltitude: $useAltitude")
+    // Use Altitude
+    fun getUseAltitudeFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_ALTITUDE, DEFAULT_USE_ALTITUDE)
     }
-
+    
+    suspend fun saveUseAltitude(useAltitude: Boolean) {
+        savePreference(PreferenceKeys.USE_ALTITUDE, useAltitude, KEY_USE_ALTITUDE, useAltitude)
+    }
+    
+    // For backward compatibility
     fun getUseAltitude(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_ALTITUDE, DEFAULT_USE_ALTITUDE)
     }
 
-    fun saveAltitude(altitude: Double) {
-        val bits = java.lang.Double.doubleToRawLongBits(altitude)
-        sharedPrefs.edit()
-            .putLong(KEY_ALTITUDE, bits)
-            .apply()
-        Log.d(tag, "Saved Altitude: $altitude")
+    // Altitude
+    fun getAltitudeFlow(): Flow<Double> {
+        return getPreferenceFlow(PreferenceKeys.ALTITUDE, DEFAULT_ALTITUDE)
     }
-
+    
+    suspend fun saveAltitude(altitude: Double) {
+        savePreference(PreferenceKeys.ALTITUDE, altitude, KEY_ALTITUDE, altitude)
+    }
+    
+    // For backward compatibility
     fun getAltitude(): Double {
         val bits = sharedPrefs.getLong(KEY_ALTITUDE, java.lang.Double.doubleToRawLongBits(DEFAULT_ALTITUDE))
         return java.lang.Double.longBitsToDouble(bits)
     }
 
-    fun saveUseRandomize(randomize: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_RANDOMIZE, randomize)
-            .apply()
-        Log.d(tag, "Saved UseRandomize: $randomize")
+    // Use Randomize
+    fun getUseRandomizeFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_RANDOMIZE, DEFAULT_USE_RANDOMIZE)
     }
-
+    
+    suspend fun saveUseRandomize(randomize: Boolean) {
+        savePreference(PreferenceKeys.USE_RANDOMIZE, randomize, KEY_USE_RANDOMIZE, randomize)
+    }
+    
+    // For backward compatibility
     fun getUseRandomize(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_RANDOMIZE, DEFAULT_USE_RANDOMIZE)
     }
 
-    fun saveRandomizeRadius(radius: Double) {
-        val bits = java.lang.Double.doubleToRawLongBits(radius)
-        sharedPrefs.edit()
-            .putLong(KEY_RANDOMIZE_RADIUS, bits)
-            .apply()
-        Log.d(tag, "Saved RandomizeRadius: $radius")
+    // Randomize Radius
+    fun getRandomizeRadiusFlow(): Flow<Double> {
+        return getPreferenceFlow(PreferenceKeys.RANDOMIZE_RADIUS, DEFAULT_RANDOMIZE_RADIUS)
     }
-
+    
+    suspend fun saveRandomizeRadius(radius: Double) {
+        savePreference(PreferenceKeys.RANDOMIZE_RADIUS, radius, KEY_RANDOMIZE_RADIUS, radius)
+    }
+    
+    // For backward compatibility
     fun getRandomizeRadius(): Double {
         val bits = sharedPrefs.getLong(
             KEY_RANDOMIZE_RADIUS,
@@ -138,147 +279,216 @@ class PreferencesRepository(context: Context) {
     }
 
     // Favorites
-    fun addFavorite(favorite: FavoriteLocation) {
-        val favorites = getFavorites().toMutableList()
-        favorites.add(favorite)
-        saveFavorites(favorites)
-        Log.d(tag, "Added Favorite: $favorite")
+    fun getFavoritesFlow(): Flow<List<FavoriteLocation>> {
+        return context.dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    Log.e(tag, "Error reading preferences: ${exception.message}")
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                val json = preferences[PreferenceKeys.FAVORITES]
+                if (json != null) {
+                    try {
+                        val type = object : TypeToken<List<FavoriteLocation>>() {}.type
+                        gson.fromJson(json, type)
+                    } catch (e: JsonSyntaxException) {
+                        Log.e(tag, "Error parsing Favorites: ${e.message}")
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+            }
     }
-
+    
+    suspend fun addFavorite(favorite: FavoriteLocation) {
+        try {
+            val favorites = getFavoritesFlow().firstOrNull() ?: emptyList()
+            val updatedFavorites = favorites.toMutableList().apply { add(favorite) }
+            saveFavorites(updatedFavorites)
+            Log.d(tag, "Added Favorite: $favorite")
+        } catch (e: Exception) {
+            Log.e(tag, "Error adding favorite: ${e.message}")
+        }
+    }
+    
+    private suspend fun saveFavorites(favorites: List<FavoriteLocation>) {
+        try {
+            val json = gson.toJson(favorites)
+            savePreference(PreferenceKeys.FAVORITES, json, KEY_FAVORITES, json)
+        } catch (e: Exception) {
+            Log.e(tag, "Error saving favorites: ${e.message}")
+        }
+    }
+    
+    suspend fun removeFavorite(favorite: FavoriteLocation) {
+        try {
+            val favorites = getFavoritesFlow().firstOrNull() ?: emptyList()
+            val updatedFavorites = favorites.toMutableList().apply { remove(favorite) }
+            saveFavorites(updatedFavorites)
+            Log.d(tag, "Removed Favorite: $favorite from preferences")
+        } catch (e: Exception) {
+            Log.e(tag, "Error removing favorite: ${e.message}")
+        }
+    }
+    
+    // For backward compatibility
     fun getFavorites(): List<FavoriteLocation> {
-        val json = sharedPrefs.getString("favorites", null)
+        val json = sharedPrefs.getString(KEY_FAVORITES, null)
         return if (json != null) {
-            val type = object : TypeToken<List<FavoriteLocation>>() {}.type
-            gson.fromJson(json, type)
+            try {
+                val type = object : TypeToken<List<FavoriteLocation>>() {}.type
+                gson.fromJson(json, type)
+            } catch (e: JsonSyntaxException) {
+                Log.e(tag, "Error parsing Favorites: ${e.message}")
+                emptyList()
+            }
         } else {
             emptyList()
         }
     }
 
-    private fun saveFavorites(favorites: List<FavoriteLocation>) {
-        val json = gson.toJson(favorites)
-        sharedPrefs.edit()
-            .putString("favorites", json)
-            .apply()
-        Log.d(tag, "Saved Favorites: $json")
-    }
-
-    fun removeFavorite(favorite: FavoriteLocation) {
-        val favorites = getFavorites().toMutableList()
-        favorites.remove(favorite)
-        saveFavorites(favorites)
-        Log.d(tag, "Removed Favorite: $favorite from shared preferences")
-    }
-
     // Vertical Accuracy
-    fun saveUseVerticalAccuracy(useVerticalAccuracy: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_VERTICAL_ACCURACY, useVerticalAccuracy)
-            .apply()
-        Log.d(tag, "Saved UseVerticalAccuracy: $useVerticalAccuracy")
+    fun getUseVerticalAccuracyFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_VERTICAL_ACCURACY, DEFAULT_USE_VERTICAL_ACCURACY)
     }
-
+    
+    suspend fun saveUseVerticalAccuracy(useVerticalAccuracy: Boolean) {
+        savePreference(PreferenceKeys.USE_VERTICAL_ACCURACY, useVerticalAccuracy, KEY_USE_VERTICAL_ACCURACY, useVerticalAccuracy)
+    }
+    
+    // For backward compatibility
     fun getUseVerticalAccuracy(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_VERTICAL_ACCURACY, DEFAULT_USE_VERTICAL_ACCURACY)
     }
 
-    fun saveVerticalAccuracy(verticalAccuracy: Float) {
-        sharedPrefs.edit()
-            .putFloat(KEY_VERTICAL_ACCURACY, verticalAccuracy)
-            .apply()
-        Log.d(tag, "Saved VerticalAccuracy: $verticalAccuracy")
+    // Vertical Accuracy Value
+    fun getVerticalAccuracyFlow(): Flow<Float> {
+        return getPreferenceFlow(PreferenceKeys.VERTICAL_ACCURACY, DEFAULT_VERTICAL_ACCURACY)
     }
-
+    
+    suspend fun saveVerticalAccuracy(verticalAccuracy: Float) {
+        savePreference(PreferenceKeys.VERTICAL_ACCURACY, verticalAccuracy, KEY_VERTICAL_ACCURACY, verticalAccuracy)
+    }
+    
+    // For backward compatibility
     fun getVerticalAccuracy(): Float {
         return sharedPrefs.getFloat(KEY_VERTICAL_ACCURACY, DEFAULT_VERTICAL_ACCURACY)
     }
 
-    fun saveUseMeanSeaLevel(useMeanSeaLevel: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_MEAN_SEA_LEVEL, useMeanSeaLevel)
-            .apply()
-        Log.d(tag, "Saved UseMeanSeaLevel: $useMeanSeaLevel")
+    // Use Mean Sea Level
+    fun getUseMeanSeaLevelFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_MEAN_SEA_LEVEL, DEFAULT_USE_MEAN_SEA_LEVEL)
     }
-
+    
+    suspend fun saveUseMeanSeaLevel(useMeanSeaLevel: Boolean) {
+        savePreference(PreferenceKeys.USE_MEAN_SEA_LEVEL, useMeanSeaLevel, KEY_USE_MEAN_SEA_LEVEL, useMeanSeaLevel)
+    }
+    
+    // For backward compatibility
     fun getUseMeanSeaLevel(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_MEAN_SEA_LEVEL, DEFAULT_USE_MEAN_SEA_LEVEL)
     }
 
-    fun saveMeanSeaLevel(meanSeaLevel: Double) {
-        val bits = java.lang.Double.doubleToRawLongBits(meanSeaLevel)
-        sharedPrefs.edit()
-            .putLong(KEY_MEAN_SEA_LEVEL, bits)
-            .apply()
-        Log.d(tag, "Saved MeanSeaLevel: $meanSeaLevel")
+    // Mean Sea Level
+    fun getMeanSeaLevelFlow(): Flow<Double> {
+        return getPreferenceFlow(PreferenceKeys.MEAN_SEA_LEVEL, DEFAULT_MEAN_SEA_LEVEL)
     }
-
+    
+    suspend fun saveMeanSeaLevel(meanSeaLevel: Double) {
+        savePreference(PreferenceKeys.MEAN_SEA_LEVEL, meanSeaLevel, KEY_MEAN_SEA_LEVEL, meanSeaLevel)
+    }
+    
+    // For backward compatibility
     fun getMeanSeaLevel(): Double {
         val bits = sharedPrefs.getLong(KEY_MEAN_SEA_LEVEL, java.lang.Double.doubleToRawLongBits(DEFAULT_MEAN_SEA_LEVEL))
         return java.lang.Double.longBitsToDouble(bits)
     }
 
-    fun saveUseMeanSeaLevelAccuracy(useMeanSeaLevelAccuracy: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_MEAN_SEA_LEVEL_ACCURACY, useMeanSeaLevelAccuracy)
-            .apply()
-        Log.d(tag, "Saved UseMeanSeaLevelAccuracy: $useMeanSeaLevelAccuracy")
+    // Use Mean Sea Level Accuracy
+    fun getUseMeanSeaLevelAccuracyFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_MEAN_SEA_LEVEL_ACCURACY, DEFAULT_USE_MEAN_SEA_LEVEL_ACCURACY)
     }
-
+    
+    suspend fun saveUseMeanSeaLevelAccuracy(useMeanSeaLevelAccuracy: Boolean) {
+        savePreference(PreferenceKeys.USE_MEAN_SEA_LEVEL_ACCURACY, useMeanSeaLevelAccuracy, KEY_USE_MEAN_SEA_LEVEL_ACCURACY, useMeanSeaLevelAccuracy)
+    }
+    
+    // For backward compatibility
     fun getUseMeanSeaLevelAccuracy(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_MEAN_SEA_LEVEL_ACCURACY, DEFAULT_USE_MEAN_SEA_LEVEL_ACCURACY)
     }
 
-    fun saveMeanSeaLevelAccuracy(meanSeaLevelAccuracy: Float) {
-        sharedPrefs.edit()
-            .putFloat(KEY_MEAN_SEA_LEVEL_ACCURACY, meanSeaLevelAccuracy)
-            .apply()
-        Log.d(tag, "Saved MeanSeaLevelAccuracy: $meanSeaLevelAccuracy")
+    // Mean Sea Level Accuracy
+    fun getMeanSeaLevelAccuracyFlow(): Flow<Float> {
+        return getPreferenceFlow(PreferenceKeys.MEAN_SEA_LEVEL_ACCURACY, DEFAULT_MEAN_SEA_LEVEL_ACCURACY)
     }
-
+    
+    suspend fun saveMeanSeaLevelAccuracy(meanSeaLevelAccuracy: Float) {
+        savePreference(PreferenceKeys.MEAN_SEA_LEVEL_ACCURACY, meanSeaLevelAccuracy, KEY_MEAN_SEA_LEVEL_ACCURACY, meanSeaLevelAccuracy)
+    }
+    
+    // For backward compatibility
     fun getMeanSeaLevelAccuracy(): Float {
         return sharedPrefs.getFloat(KEY_MEAN_SEA_LEVEL_ACCURACY, DEFAULT_MEAN_SEA_LEVEL_ACCURACY)
     }
 
-    fun saveUseSpeed(useSpeed: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_SPEED, useSpeed)
-            .apply()
-        Log.d(tag, "Saved UseSpeed: $useSpeed")
+    // Use Speed
+    fun getUseSpeedFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_SPEED, DEFAULT_USE_SPEED)
     }
-
+    
+    suspend fun saveUseSpeed(useSpeed: Boolean) {
+        savePreference(PreferenceKeys.USE_SPEED, useSpeed, KEY_USE_SPEED, useSpeed)
+    }
+    
+    // For backward compatibility
     fun getUseSpeed(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_SPEED, DEFAULT_USE_SPEED)
     }
 
-    fun saveSpeed(speed: Float) {
-        sharedPrefs.edit()
-            .putFloat(KEY_SPEED, speed)
-            .apply()
-        Log.d(tag, "Saved Speed: $speed")
+    // Speed
+    fun getSpeedFlow(): Flow<Float> {
+        return getPreferenceFlow(PreferenceKeys.SPEED, DEFAULT_SPEED)
     }
-
+    
+    suspend fun saveSpeed(speed: Float) {
+        savePreference(PreferenceKeys.SPEED, speed, KEY_SPEED, speed)
+    }
+    
+    // For backward compatibility
     fun getSpeed(): Float {
         return sharedPrefs.getFloat(KEY_SPEED, DEFAULT_SPEED)
     }
 
-    fun saveUseSpeedAccuracy(useSpeedAccuracy: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_USE_SPEED_ACCURACY, useSpeedAccuracy)
-            .apply()
-        Log.d(tag, "Saved UseSpeedAccuracy: $useSpeedAccuracy")
+    // Use Speed Accuracy
+    fun getUseSpeedAccuracyFlow(): Flow<Boolean> {
+        return getPreferenceFlow(PreferenceKeys.USE_SPEED_ACCURACY, DEFAULT_USE_SPEED_ACCURACY)
     }
-
+    
+    suspend fun saveUseSpeedAccuracy(useSpeedAccuracy: Boolean) {
+        savePreference(PreferenceKeys.USE_SPEED_ACCURACY, useSpeedAccuracy, KEY_USE_SPEED_ACCURACY, useSpeedAccuracy)
+    }
+    
+    // For backward compatibility
     fun getUseSpeedAccuracy(): Boolean {
         return sharedPrefs.getBoolean(KEY_USE_SPEED_ACCURACY, DEFAULT_USE_SPEED_ACCURACY)
     }
 
-    fun saveSpeedAccuracy(speedAccuracy: Float) {
-        sharedPrefs.edit()
-            .putFloat(KEY_SPEED_ACCURACY, speedAccuracy)
-            .apply()
-        Log.d(tag, "Saved SpeedAccuracy: $speedAccuracy")
+    // Speed Accuracy
+    fun getSpeedAccuracyFlow(): Flow<Float> {
+        return getPreferenceFlow(PreferenceKeys.SPEED_ACCURACY, DEFAULT_SPEED_ACCURACY)
     }
-
+    
+    suspend fun saveSpeedAccuracy(speedAccuracy: Float) {
+        savePreference(PreferenceKeys.SPEED_ACCURACY, speedAccuracy, KEY_SPEED_ACCURACY, speedAccuracy)
+    }
+    
+    // For backward compatibility
     fun getSpeedAccuracy(): Float {
         return sharedPrefs.getFloat(KEY_SPEED_ACCURACY, DEFAULT_SPEED_ACCURACY)
     }

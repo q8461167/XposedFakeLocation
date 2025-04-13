@@ -58,6 +58,11 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.gson)
     implementation(libs.hiddenapibypass)
+    
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.datastore.preferences.core)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

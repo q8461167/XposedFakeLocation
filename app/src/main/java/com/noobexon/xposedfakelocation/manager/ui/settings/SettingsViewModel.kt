@@ -8,6 +8,7 @@ import com.noobexon.xposedfakelocation.data.*
 import com.noobexon.xposedfakelocation.data.repository.PreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,104 +64,214 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
-            _useAccuracy.value = preferencesRepository.getUseAccuracy()
-            _accuracy.value = preferencesRepository.getAccuracy()
-            _useAltitude.value = preferencesRepository.getUseAltitude()
-            _altitude.value = preferencesRepository.getAltitude()
-            _useRandomize.value = preferencesRepository.getUseRandomize()
-            _randomizeRadius.value = preferencesRepository.getRandomizeRadius()
-            _useVerticalAccuracy.value = preferencesRepository.getUseVerticalAccuracy()
-            _verticalAccuracy.value = preferencesRepository.getVerticalAccuracy()
-            _useMeanSeaLevel.value = preferencesRepository.getUseMeanSeaLevel()
-            _meanSeaLevel.value = preferencesRepository.getMeanSeaLevel()
-            _useMeanSeaLevelAccuracy.value = preferencesRepository.getUseMeanSeaLevelAccuracy()
-            _meanSeaLevelAccuracy.value = preferencesRepository.getMeanSeaLevelAccuracy()
-            _useSpeed.value = preferencesRepository.getUseSpeed()
-            _speed.value = preferencesRepository.getSpeed()
-            _useSpeedAccuracy.value = preferencesRepository.getUseSpeedAccuracy()
-            _speedAccuracy.value = preferencesRepository.getSpeedAccuracy()
+            // Collect values from data store flows
+            launch {
+                preferencesRepository.getUseAccuracyFlow().collectLatest { 
+                    _useAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getAccuracyFlow().collectLatest { 
+                    _accuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseAltitudeFlow().collectLatest { 
+                    _useAltitude.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getAltitudeFlow().collectLatest { 
+                    _altitude.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseRandomizeFlow().collectLatest { 
+                    _useRandomize.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getRandomizeRadiusFlow().collectLatest { 
+                    _randomizeRadius.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseVerticalAccuracyFlow().collectLatest { 
+                    _useVerticalAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getVerticalAccuracyFlow().collectLatest { 
+                    _verticalAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseMeanSeaLevelFlow().collectLatest { 
+                    _useMeanSeaLevel.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getMeanSeaLevelFlow().collectLatest { 
+                    _meanSeaLevel.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseMeanSeaLevelAccuracyFlow().collectLatest { 
+                    _useMeanSeaLevelAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getMeanSeaLevelAccuracyFlow().collectLatest { 
+                    _meanSeaLevelAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseSpeedFlow().collectLatest { 
+                    _useSpeed.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getSpeedFlow().collectLatest { 
+                    _speed.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getUseSpeedAccuracyFlow().collectLatest { 
+                    _useSpeedAccuracy.value = it 
+                }
+            }
+            
+            launch {
+                preferencesRepository.getSpeedAccuracyFlow().collectLatest { 
+                    _speedAccuracy.value = it 
+                }
+            }
         }
     }
 
     fun setUseAccuracy(value: Boolean) {
         _useAccuracy.value = value
-        preferencesRepository.saveUseAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseAccuracy(value)
+        }
     }
 
     fun setAccuracy(value: Double) {
         _accuracy.value = value
-        preferencesRepository.saveAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveAccuracy(value)
+        }
     }
 
     fun setUseAltitude(value: Boolean) {
         _useAltitude.value = value
-        preferencesRepository.saveUseAltitude(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseAltitude(value)
+        }
     }
 
     fun setAltitude(value: Double) {
         _altitude.value = value
-        preferencesRepository.saveAltitude(value)
+        viewModelScope.launch {
+            preferencesRepository.saveAltitude(value)
+        }
     }
 
     fun setUseRandomize(value: Boolean) {
         _useRandomize.value = value
-        preferencesRepository.saveUseRandomize(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseRandomize(value)
+        }
     }
 
     fun setRandomizeRadius(value: Double) {
         _randomizeRadius.value = value
-        preferencesRepository.saveRandomizeRadius(value)
+        viewModelScope.launch {
+            preferencesRepository.saveRandomizeRadius(value)
+        }
     }
 
     fun setUseVerticalAccuracy(value: Boolean) {
         _useVerticalAccuracy.value = value
-        preferencesRepository.saveUseVerticalAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseVerticalAccuracy(value)
+        }
     }
 
     fun setVerticalAccuracy(value: Float) {
         _verticalAccuracy.value = value
-        preferencesRepository.saveVerticalAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveVerticalAccuracy(value)
+        }
     }
 
     fun setUseMeanSeaLevel(value: Boolean) {
         _useMeanSeaLevel.value = value
-        preferencesRepository.saveUseMeanSeaLevel(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseMeanSeaLevel(value)
+        }
     }
 
     fun setMeanSeaLevel(value: Double) {
         _meanSeaLevel.value = value
-        preferencesRepository.saveMeanSeaLevel(value)
+        viewModelScope.launch {
+            preferencesRepository.saveMeanSeaLevel(value)
+        }
     }
 
     fun setUseMeanSeaLevelAccuracy(value: Boolean) {
         _useMeanSeaLevelAccuracy.value = value
-        preferencesRepository.saveUseMeanSeaLevelAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseMeanSeaLevelAccuracy(value)
+        }
     }
 
     fun setMeanSeaLevelAccuracy(value: Float) {
         _meanSeaLevelAccuracy.value = value
-        preferencesRepository.saveMeanSeaLevelAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveMeanSeaLevelAccuracy(value)
+        }
     }
 
     fun setUseSpeed(value: Boolean) {
         _useSpeed.value = value
-        preferencesRepository.saveUseSpeed(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseSpeed(value)
+        }
     }
 
     fun setSpeed(value: Float) {
         _speed.value = value
-        preferencesRepository.saveSpeed(value)
+        viewModelScope.launch {
+            preferencesRepository.saveSpeed(value)
+        }
     }
 
     fun setUseSpeedAccuracy(value: Boolean) {
         _useSpeedAccuracy.value = value
-        preferencesRepository.saveUseSpeedAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveUseSpeedAccuracy(value)
+        }
     }
 
     fun setSpeedAccuracy(value: Float) {
         _speedAccuracy.value = value
-        preferencesRepository.saveSpeedAccuracy(value)
+        viewModelScope.launch {
+            preferencesRepository.saveSpeedAccuracy(value)
+        }
     }
-
-
 }
