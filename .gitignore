@@ -1,113 +1,41 @@
-# Built application files
-*.apk
+# === Android build artifacts ===
+/build/
+/app/build/
+/*.apk
+/*.aab
 *.ap_
-*.aab
-
-# Files for the ART/Dalvik VM
 *.dex
 
-# Java class files
-*.class
-
-# Generated files
-bin/
-gen/
-out/
-
-# Gradle files
+# === Gradle ===
 .gradle/
-build/
+/local.properties
+/keystore.properties
 
-# Local configuration file (sdk path, etc)
-local.properties
-keystore.properties
+# === Android Studio ===
+.idea/
+/*.iml
+*.ipr
+*.iws
 
-# Log Files
-*.log
-
-# Android Studio Navigation editor temp files
-.navigation/
-
-# Android Studio captures folder
-captures/
-
-# IntelliJ / Android Studio
-*.iml
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/assetWizardSettings.xml
-.idea/dictionaries
-.idea/libraries
-.idea/caches
-.idea/modules.xml
-.idea/navEditor.xml
-.idea/.name
-.idea/compiler.xml
-.idea/copyright/profiles_settings.xml
-.idea/encodings.xml
-.idea/misc.xml
-.idea/scopes/scope_settings.xml
-.idea/vcs.xml
-.idea/jsLibraryMappings.xml
-.idea/datasources.xml
-.idea/dataSources.ids
-.idea/sqlDataSources.xml
-.idea/dynamic.xml
-.idea/uiDesigner.xml
-.idea/jarRepositories.xml
-.idea/deploymentTargetDropDown.xml
-.idea/deploymentTargetSelector.xml
-.idea/migrations.xml
-.idea/androidTestResultsUserPreferences.xml
-.idea/inspectionProfiles/
-
-# OS-specific files
+# === OS-generated cruft ===
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
+ehthumbs.db
 
-# Cursor IDE specific
-.cursor/
+# === Logs & temporary files ===
+*.log
+*.tmp
+*.bak
+*~
 
-# Kotlin specific
-.kotlin/
-
-# External native build folder generated in Android Studio
-.externalNativeBuild
-.cxx/
-
-# Version control
-vcs.xml
-
-# Android Profiling
+# === Captures / profiling / other ===
+captures/
 *.hprof
 
-# Google Services (e.g. APIs or Firebase)
+# === Google services (API keys etc) ===
 google-services.json
 app/google-services.json
 
-# Freeline
-freeline.py
-freeline/
-freeline_project_description.json
-
-# Fastlane
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots
-fastlane/test_output
-fastlane/readme.md
-
-# Temporary files
-*~
-*.tmp
-*.bak
-
-# Android Studio Patch
-gen-external-apklibs
-output.json
+# === Kotlin build artifacts ===
+.kotlin/
+.cursor/
