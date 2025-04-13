@@ -32,8 +32,11 @@ fun MapScreen(
     // Extract values from UI state
     val isPlaying = uiState.isPlaying
     val isFabClickable = uiState.isFabClickable
-    val showGoToPointDialog = uiState.showGoToPointDialog
-    val showAddToFavoritesDialog = uiState.showAddToFavoritesDialog
+    val isLoading = uiState.loadingState == LoadingState.Loading
+    
+    // Dialog states
+    val showGoToPointDialog = uiState.goToPointDialogState == DialogState.Visible
+    val showAddToFavoritesDialog = uiState.addToFavoritesDialogState == DialogState.Visible
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()

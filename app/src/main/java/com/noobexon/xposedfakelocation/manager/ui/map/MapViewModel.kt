@@ -3,11 +3,28 @@ package com.noobexon.xposedfakelocation.manager.ui.map
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.noobexon.xposedfakelocation.data.DEFAULT_MAP_ZOOM
 import com.noobexon.xposedfakelocation.data.model.FavoriteLocation
 import com.noobexon.xposedfakelocation.data.repository.PreferencesRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
+
+/**
+ * Sealed classes to represent different dialog states
+ */
+sealed class DialogState {
+    object Hidden : DialogState()
+    object Visible : DialogState()
+}
+
+/**
+ * Sealed class to represent different loading states
+ */
+sealed class LoadingState {
+    object Loading : LoadingState()
+    object Loaded : LoadingState()
+}
 
 /**
  * ViewModel for the Map screen that manages map-related state and operations.
@@ -36,10 +53,10 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         val isPlaying: Boolean = false,
         val lastClickedLocation: GeoPoint? = null,
         val userLocation: GeoPoint? = null,
-        val isLoading: Boolean = true,
+        val loadingState: LoadingState = LoadingState.Loading,
         val mapZoom: Double? = null,
-        val showGoToPointDialog: Boolean = false,
-        val showAddToFavoritesDialog: Boolean = false,
+        val goToPointDialogState: DialogState = DialogState.Hidden,
+        val addToFavoritesDialogState: DialogState = DialogState.Hidden,
         val goToPointState: Pair<InputFieldState, InputFieldState> = InputFieldState() to InputFieldState(),
         val addToFavoritesState: FavoritesInputState = FavoritesInputState()
     ) {
@@ -136,7 +153,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setLoadingStarted() {
-        _uiState.update { it.copy(isLoading = true) }
+        _uiState.update { it.copy(loadingState = LoadingState.Loading) }
     }
 
     // Set loading finished
@@ -148,7 +165,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         
         _uiState.update { 
             it.copy(
-                isLoading = false,
+                loadingState = LoadingState.Loaded,
                 isPlaying = isPlaying,
                 lastClickedLocation = lastClickedLocation
             )
@@ -157,20 +174,20 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     // Dialog show/hide logic
     fun showGoToPointDialog() { 
-        _uiState.update { it.copy(showGoToPointDialog = true) }
+        _uiState.update { it.copy(goToPointDialogState = DialogState.Visible) }
     }
     
     fun hideGoToPointDialog() {
-        _uiState.update { it.copy(showGoToPointDialog = false) }
+        _uiState.update { it.copy(goToPointDialogState = DialogState.Hidden) }
         clearGoToPointInputs()
     }
 
     fun showAddToFavoritesDialog() { 
-        _uiState.update { it.copy(showAddToFavoritesDialog = true) }
+        _uiState.update { it.copy(addToFavoritesDialogState = DialogState.Visible) }
     }
     
     fun hideAddToFavoritesDialog() {
-        _uiState.update { it.copy(showAddToFavoritesDialog = false) }
+        _uiState.update { it.copy(addToFavoritesDialogState = DialogState.Hidden) }
         clearAddToFavoritesInputs()
     }
 

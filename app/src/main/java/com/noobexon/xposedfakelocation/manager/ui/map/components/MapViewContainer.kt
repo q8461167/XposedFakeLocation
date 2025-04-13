@@ -18,6 +18,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.noobexon.xposedfakelocation.data.DEFAULT_MAP_ZOOM
+import com.noobexon.xposedfakelocation.data.LOCATION_DETECTION_DELAY_MS
+import com.noobexon.xposedfakelocation.data.LOCATION_DETECTION_MAX_ATTEMPTS
+import com.noobexon.xposedfakelocation.data.WORLD_MAP_ZOOM
+import com.noobexon.xposedfakelocation.manager.ui.map.DialogState
+import com.noobexon.xposedfakelocation.manager.ui.map.LoadingState
 import com.noobexon.xposedfakelocation.manager.ui.map.MapViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -41,7 +47,7 @@ fun MapViewContainer(
     val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
 
     // Extract state from uiState
-    val isLoading = uiState.isLoading
+    val loadingState = uiState.loadingState
     val lastClickedLocation = uiState.lastClickedLocation
     val isPlaying = uiState.isPlaying
     val mapZoom = uiState.mapZoom
@@ -85,7 +91,7 @@ fun MapViewContainer(
     }
 
     // Display loading spinner or MapView
-    if (isLoading) {
+    if (loadingState == LoadingState.Loading) {
         LoadingSpinner()
     } else {
         DisplayMapView(mapView)
@@ -229,34 +235,68 @@ private fun CenterMapOnUserLocation(
 ) {
     LaunchedEffect(mapView, lastClickedLocation) {
         if (lastClickedLocation != null) {
-            // If marker exists, center on it using stored zoom level
-            val zoom = mapZoom ?: mapView.zoomLevelDouble
-            mapView.controller.setZoom(zoom)
-            mapView.controller.animateTo(lastClickedLocation)
-            mapViewModel.setLoadingFinished()
+            centerOnMarkerLocation(mapView, lastClickedLocation, mapZoom, mapViewModel)
         } else {
-            // Proceed to center on user's location with default zoom
-            val maxAttempts = 80
-            val delayMillis = 100L
-            repeat(maxAttempts) {
-                val userLocation = locationOverlay.myLocation
-                if (userLocation != null) {
-                    mapViewModel.updateUserLocation(userLocation)
-                    mapView.controller.setZoom(18.0)
-                    mapView.controller.animateTo(userLocation)
-                    mapViewModel.updateMapZoom(18.0) // Initialize mapZoom
-                    mapViewModel.setLoadingFinished()
-                    return@LaunchedEffect
-                }
-                delay(delayMillis)
+            if (!tryToFindAndCenterUserLocation(mapView, locationOverlay, mapViewModel)) {
+                centerOnDefaultLocation(mapView, mapViewModel)
             }
-            // If location is not available after timeout, set default location
-            mapView.controller.setZoom(2.0)
-            mapView.controller.setCenter(GeoPoint(0.0, 0.0))
-            mapViewModel.updateMapZoom(2.0) // Initialize mapZoom
-            mapViewModel.setLoadingFinished()
         }
     }
+}
+
+/**
+ * Centers the map on a specific marker location
+ */
+private suspend fun centerOnMarkerLocation(
+    mapView: MapView,
+    markerLocation: GeoPoint,
+    mapZoom: Double?,
+    mapViewModel: MapViewModel
+) {
+    // If marker exists, center on it using stored zoom level
+    val zoom = mapZoom ?: mapView.zoomLevelDouble
+    mapView.controller.setZoom(zoom)
+    mapView.controller.animateTo(markerLocation)
+    mapViewModel.setLoadingFinished()
+}
+
+/**
+ * Attempts to find and center on the user's current location
+ * @return true if user location was found, false otherwise
+ */
+private suspend fun tryToFindAndCenterUserLocation(
+    mapView: MapView,
+    locationOverlay: MyLocationNewOverlay,
+    mapViewModel: MapViewModel
+): Boolean {
+    // Attempt to find user location within a timeout period
+    repeat(LOCATION_DETECTION_MAX_ATTEMPTS) {
+        val userLocation = locationOverlay.myLocation
+        if (userLocation != null) {
+            mapViewModel.updateUserLocation(userLocation)
+            mapView.controller.setZoom(DEFAULT_MAP_ZOOM)
+            mapView.controller.animateTo(userLocation)
+            mapViewModel.updateMapZoom(DEFAULT_MAP_ZOOM)
+            mapViewModel.setLoadingFinished()
+            return true
+        }
+        delay(LOCATION_DETECTION_DELAY_MS)
+    }
+    return false
+}
+
+/**
+ * Centers the map on a default world location when user location can't be found
+ */
+private fun centerOnDefaultLocation(
+    mapView: MapView,
+    mapViewModel: MapViewModel
+) {
+    // If location is not available after timeout, set default location
+    mapView.controller.setZoom(WORLD_MAP_ZOOM)
+    mapView.controller.setCenter(GeoPoint(0.0, 0.0))
+    mapViewModel.updateMapZoom(WORLD_MAP_ZOOM)
+    mapViewModel.setLoadingFinished()
 }
 
 @Composable
