@@ -97,7 +97,7 @@ private fun rememberMapView(context: Context): MapView {
     return remember {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
-            setZoomButtonsVisible(false)
+            setBuiltInZoomControls(false)
             setMultiTouchControls(true)
         }
     }
