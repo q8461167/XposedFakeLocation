@@ -1,1 +1,8 @@
 /build
+/release
+*.aab
+*.apk
+/debug
+/outputs
+sentry.properties
+keystore.properties
