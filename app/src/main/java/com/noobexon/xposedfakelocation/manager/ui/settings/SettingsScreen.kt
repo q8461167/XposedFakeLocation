@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,7 +17,119 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
+// Dimension constants
+private object Dimensions {
+    val SPACING_SMALL = 8.dp
+    val SPACING_MEDIUM = 16.dp
+    val SPACING_LARGE = 24.dp
+}
+
+// Setting definitions to reduce duplication
+private object SettingDefinitions {
+    // Define all settings with their parameters
+    @Composable
+    fun getSettings(viewModel: SettingsViewModel): List<SettingData> = listOf(
+        // Randomize Nearby Location
+        DoubleSettingData(
+            title = "Randomize Nearby Location",
+            useValueState = viewModel.useRandomize.collectAsState(),
+            valueState = viewModel.randomizeRadius.collectAsState(),
+            setUseValue = viewModel::setUseRandomize,
+            setValue = viewModel::setRandomizeRadius,
+            label = "Randomization Radius (m)",
+            minValue = 0f,
+            maxValue = 50f,
+            step = 0.1f
+        ),
+        // Custom Horizontal Accuracy
+        DoubleSettingData(
+            title = "Custom Horizontal Accuracy",
+            useValueState = viewModel.useAccuracy.collectAsState(),
+            valueState = viewModel.accuracy.collectAsState(),
+            setUseValue = viewModel::setUseAccuracy,
+            setValue = viewModel::setAccuracy,
+            label = "Horizontal Accuracy (m)",
+            minValue = 0f,
+            maxValue = 100f,
+            step = 1f
+        ),
+        // Custom Vertical Accuracy
+        FloatSettingData(
+            title = "Custom Vertical Accuracy",
+            useValueState = viewModel.useVerticalAccuracy.collectAsState(),
+            valueState = viewModel.verticalAccuracy.collectAsState(),
+            setUseValue = viewModel::setUseVerticalAccuracy,
+            setValue = viewModel::setVerticalAccuracy,
+            label = "Vertical Accuracy (m)",
+            minValue = 0f,
+            maxValue = 100f,
+            step = 1f
+        ),
+        // Custom Altitude
+        DoubleSettingData(
+            title = "Custom Altitude",
+            useValueState = viewModel.useAltitude.collectAsState(),
+            valueState = viewModel.altitude.collectAsState(),
+            setUseValue = viewModel::setUseAltitude,
+            setValue = viewModel::setAltitude,
+            label = "Altitude (m)",
+            minValue = 0f,
+            maxValue = 2000f,
+            step = 0.5f
+        ),
+        // Custom MSL
+        DoubleSettingData(
+            title = "Custom MSL",
+            useValueState = viewModel.useMeanSeaLevel.collectAsState(),
+            valueState = viewModel.meanSeaLevel.collectAsState(),
+            setUseValue = viewModel::setUseMeanSeaLevel,
+            setValue = viewModel::setMeanSeaLevel,
+            label = "MSL (m)",
+            minValue = -400f,
+            maxValue = 2000f,
+            step = 0.5f
+        ),
+        // Custom MSL Accuracy
+        FloatSettingData(
+            title = "Custom MSL Accuracy",
+            useValueState = viewModel.useMeanSeaLevelAccuracy.collectAsState(),
+            valueState = viewModel.meanSeaLevelAccuracy.collectAsState(),
+            setUseValue = viewModel::setUseMeanSeaLevelAccuracy,
+            setValue = viewModel::setMeanSeaLevelAccuracy,
+            label = "MSL Accuracy (m)",
+            minValue = 0f,
+            maxValue = 100f,
+            step = 1f
+        ),
+        // Custom Speed
+        FloatSettingData(
+            title = "Custom Speed",
+            useValueState = viewModel.useSpeed.collectAsState(),
+            valueState = viewModel.speed.collectAsState(),
+            setUseValue = viewModel::setUseSpeed,
+            setValue = viewModel::setSpeed,
+            label = "Speed (m/s)",
+            minValue = 0f,
+            maxValue = 30f,
+            step = 0.1f
+        ),
+        // Custom Speed Accuracy
+        FloatSettingData(
+            title = "Custom Speed Accuracy",
+            useValueState = viewModel.useSpeedAccuracy.collectAsState(),
+            valueState = viewModel.speedAccuracy.collectAsState(),
+            setUseValue = viewModel::setUseSpeedAccuracy,
+            setValue = viewModel::setSpeedAccuracy,
+            label = "Speed Accuracy (m/s)",
+            minValue = 0f,
+            maxValue = 100f,
+            step = 1f
+        )
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,104 +140,8 @@ fun SettingsScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
-    val settings = listOf<SettingData>(
-        // Randomize Nearby Location
-        DoubleSettingData(
-            title = "Randomize Nearby Location",
-            useValueState = settingsViewModel.useRandomize.collectAsState(),
-            valueState = settingsViewModel.randomizeRadius.collectAsState(),
-            setUseValue = settingsViewModel::setUseRandomize,
-            setValue = settingsViewModel::setRandomizeRadius,
-            label = "Randomization Radius (m)",
-            minValue = 0f,
-            maxValue = 50f,
-            step = 0.1f
-        ),
-        // Custom Horizontal Accuracy
-        DoubleSettingData(
-            title = "Custom Horizontal Accuracy",
-            useValueState = settingsViewModel.useAccuracy.collectAsState(),
-            valueState = settingsViewModel.accuracy.collectAsState(),
-            setUseValue = settingsViewModel::setUseAccuracy,
-            setValue = settingsViewModel::setAccuracy,
-            label = "Horizontal Accuracy (m)",
-            minValue = 0f,
-            maxValue = 100f,
-            step = 1f
-        ),
-        // Custom Vertical Accuracy
-        FloatSettingData(
-            title = "Custom Vertical Accuracy",
-            useValueState = settingsViewModel.useVerticalAccuracy.collectAsState(),
-            valueState = settingsViewModel.verticalAccuracy.collectAsState(),
-            setUseValue = settingsViewModel::setUseVerticalAccuracy,
-            setValue = settingsViewModel::setVerticalAccuracy,
-            label = "Vertical Accuracy (m)",
-            minValue = 0f,
-            maxValue = 100f,
-            step = 1f
-        ),
-        // Custom Altitude
-        DoubleSettingData(
-            title = "Custom Altitude",
-            useValueState = settingsViewModel.useAltitude.collectAsState(),
-            valueState = settingsViewModel.altitude.collectAsState(),
-            setUseValue = settingsViewModel::setUseAltitude,
-            setValue = settingsViewModel::setAltitude,
-            label = "Altitude (m)",
-            minValue = 0f,
-            maxValue = 2000f,
-            step = 0.5f
-        ),
-        // Custom MSL
-        DoubleSettingData(
-            title = "Custom MSL",
-            useValueState = settingsViewModel.useMeanSeaLevel.collectAsState(),
-            valueState = settingsViewModel.meanSeaLevel.collectAsState(),
-            setUseValue = settingsViewModel::setUseMeanSeaLevel,
-            setValue = settingsViewModel::setMeanSeaLevel,
-            label = "MSL (m)",
-            minValue = -400f,
-            maxValue = 2000f,
-            step = 0.5f
-        ),
-        // Custom MSL Accuracy
-        FloatSettingData(
-            title = "Custom MSL Accuracy",
-            useValueState = settingsViewModel.useMeanSeaLevelAccuracy.collectAsState(),
-            valueState = settingsViewModel.meanSeaLevelAccuracy.collectAsState(),
-            setUseValue = settingsViewModel::setUseMeanSeaLevelAccuracy,
-            setValue = settingsViewModel::setMeanSeaLevelAccuracy,
-            label = "MSL Accuracy (m)",
-            minValue = 0f,
-            maxValue = 100f,
-            step = 1f
-        ),
-        // Custom Speed
-        FloatSettingData(
-            title = "Custom Speed",
-            useValueState = settingsViewModel.useSpeed.collectAsState(),
-            valueState = settingsViewModel.speed.collectAsState(),
-            setUseValue = settingsViewModel::setUseSpeed,
-            setValue = settingsViewModel::setSpeed,
-            label = "Speed (m/s)",
-            minValue = 0f,
-            maxValue = 30f,
-            step = 0.1f
-        ),
-        // Custom Speed Accuracy
-        FloatSettingData(
-            title = "Custom Speed Accuracy",
-            useValueState = settingsViewModel.useSpeedAccuracy.collectAsState(),
-            valueState = settingsViewModel.speedAccuracy.collectAsState(),
-            setUseValue = settingsViewModel::setUseSpeedAccuracy,
-            setValue = settingsViewModel::setSpeedAccuracy,
-            label = "Speed Accuracy (m/s)",
-            minValue = 0f,
-            maxValue = 100f,
-            step = 1f
-        )
-    )
+    // Get settings from the definition object
+    val settings = SettingDefinitions.getSettings(settingsViewModel)
 
     Scaffold(
         topBar = {
@@ -139,7 +155,10 @@ fun SettingsScreen(
                 ),
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Navigate back"
+                        )
                     }
                 }
             )
@@ -157,7 +176,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(Dimensions.SPACING_MEDIUM)
                     .verticalScroll(scrollState)
             ) {
                 settings.forEach { setting ->
@@ -244,7 +263,7 @@ private fun <T : Number> SettingItem(
     parseValue: (Float) -> T
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Dimensions.SPACING_MEDIUM))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -257,12 +276,15 @@ private fun <T : Number> SettingItem(
             Spacer(modifier = Modifier.weight(1f))
             Switch(
                 checked = useValue,
-                onCheckedChange = onUseValueChange
+                onCheckedChange = onUseValueChange,
+                modifier = Modifier.semantics { 
+                    contentDescription = if (useValue) "Disable $title" else "Enable $title" 
+                }
             )
         }
 
         if (useValue) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Dimensions.SPACING_SMALL))
 
             var sliderValue by remember { mutableFloatStateOf(value.toFloat()) }
 
@@ -288,7 +310,11 @@ private fun <T : Number> SettingItem(
                 },
                 valueRange = minValue..maxValue,
                 steps = ((maxValue - minValue) / step).toInt() - 1,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Adjust $title value"
+                    }
             )
         }
     }

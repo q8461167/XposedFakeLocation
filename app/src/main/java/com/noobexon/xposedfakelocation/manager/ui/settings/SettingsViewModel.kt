@@ -6,272 +6,245 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.noobexon.xposedfakelocation.data.*
 import com.noobexon.xposedfakelocation.data.repository.PreferencesRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val preferencesRepository = PreferencesRepository(application)
 
-    private val _useAccuracy = MutableStateFlow(DEFAULT_USE_ACCURACY)
-    val useAccuracy: StateFlow<Boolean> get() = _useAccuracy
+    // Generic state holders for different types of preferences
+    private class BooleanPreference(
+        initialValue: Boolean,
+        private val flow: Flow<Boolean>,
+        private val saveOperation: suspend (Boolean) -> Unit,
+        private val viewModelScope: kotlinx.coroutines.CoroutineScope
+    ) {
+        private val _state = MutableStateFlow(initialValue)
+        val state: StateFlow<Boolean> = _state.asStateFlow()
 
-    private val _accuracy = MutableStateFlow(DEFAULT_ACCURACY)
-    val accuracy: StateFlow<Double> get() = _accuracy
-
-    private val _useAltitude = MutableStateFlow(DEFAULT_USE_ALTITUDE)
-    val useAltitude: StateFlow<Boolean> get() = _useAltitude
-
-    private val _altitude = MutableStateFlow(DEFAULT_ALTITUDE)
-    val altitude: StateFlow<Double> get() = _altitude
-
-    private val _useRandomize = MutableStateFlow(DEFAULT_USE_RANDOMIZE)
-    val useRandomize: StateFlow<Boolean> get() = _useRandomize
-
-    private val _randomizeRadius = MutableStateFlow(DEFAULT_RANDOMIZE_RADIUS)
-    val randomizeRadius: StateFlow<Double> get() = _randomizeRadius
-
-    private val _useVerticalAccuracy = MutableStateFlow(DEFAULT_USE_VERTICAL_ACCURACY)
-    val useVerticalAccuracy: StateFlow<Boolean> get() = _useVerticalAccuracy
-
-    private val _verticalAccuracy = MutableStateFlow(DEFAULT_VERTICAL_ACCURACY)
-    val verticalAccuracy: StateFlow<Float> get() = _verticalAccuracy
-
-    private val _useMeanSeaLevel = MutableStateFlow(DEFAULT_USE_MEAN_SEA_LEVEL)
-    val useMeanSeaLevel: StateFlow<Boolean> get() = _useMeanSeaLevel
-
-    private val _meanSeaLevel = MutableStateFlow(DEFAULT_MEAN_SEA_LEVEL)
-    val meanSeaLevel: StateFlow<Double> get() = _meanSeaLevel
-
-    private val _useMeanSeaLevelAccuracy = MutableStateFlow(DEFAULT_USE_MEAN_SEA_LEVEL_ACCURACY)
-    val useMeanSeaLevelAccuracy: StateFlow<Boolean> get() = _useMeanSeaLevelAccuracy
-
-    private val _meanSeaLevelAccuracy = MutableStateFlow(DEFAULT_MEAN_SEA_LEVEL_ACCURACY)
-    val meanSeaLevelAccuracy: StateFlow<Float> get() = _meanSeaLevelAccuracy
-
-    private val _useSpeed = MutableStateFlow(DEFAULT_USE_SPEED)
-    val useSpeed: StateFlow<Boolean> get() = _useSpeed
-
-    private val _speed = MutableStateFlow(DEFAULT_SPEED)
-    val speed: StateFlow<Float> get() = _speed
-
-    private val _useSpeedAccuracy = MutableStateFlow(DEFAULT_USE_SPEED_ACCURACY)
-    val useSpeedAccuracy: StateFlow<Boolean> get() = _useSpeedAccuracy
-
-    private val _speedAccuracy = MutableStateFlow(DEFAULT_SPEED_ACCURACY)
-    val speedAccuracy: StateFlow<Float> get() = _speedAccuracy
-
-    init {
-        viewModelScope.launch {
-            // Collect values from data store flows
-            launch {
-                preferencesRepository.getUseAccuracyFlow().collectLatest { 
-                    _useAccuracy.value = it 
-                }
+        init {
+            viewModelScope.launch {
+                flow.collect { _state.value = it }
             }
-            
-            launch {
-                preferencesRepository.getAccuracyFlow().collectLatest { 
-                    _accuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseAltitudeFlow().collectLatest { 
-                    _useAltitude.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getAltitudeFlow().collectLatest { 
-                    _altitude.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseRandomizeFlow().collectLatest { 
-                    _useRandomize.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getRandomizeRadiusFlow().collectLatest { 
-                    _randomizeRadius.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseVerticalAccuracyFlow().collectLatest { 
-                    _useVerticalAccuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getVerticalAccuracyFlow().collectLatest { 
-                    _verticalAccuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseMeanSeaLevelFlow().collectLatest { 
-                    _useMeanSeaLevel.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getMeanSeaLevelFlow().collectLatest { 
-                    _meanSeaLevel.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseMeanSeaLevelAccuracyFlow().collectLatest { 
-                    _useMeanSeaLevelAccuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getMeanSeaLevelAccuracyFlow().collectLatest { 
-                    _meanSeaLevelAccuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseSpeedFlow().collectLatest { 
-                    _useSpeed.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getSpeedFlow().collectLatest { 
-                    _speed.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getUseSpeedAccuracyFlow().collectLatest { 
-                    _useSpeedAccuracy.value = it 
-                }
-            }
-            
-            launch {
-                preferencesRepository.getSpeedAccuracyFlow().collectLatest { 
-                    _speedAccuracy.value = it 
+        }
+
+        fun setValue(value: Boolean) {
+            _state.value = value
+            viewModelScope.launch {
+                try {
+                    saveOperation(value)
+                } catch (e: Exception) {
+                    // Add error handling if needed
                 }
             }
         }
     }
 
-    fun setUseAccuracy(value: Boolean) {
-        _useAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseAccuracy(value)
+    private class DoublePreference(
+        initialValue: Double,
+        private val flow: Flow<Double>,
+        private val saveOperation: suspend (Double) -> Unit,
+        private val viewModelScope: kotlinx.coroutines.CoroutineScope
+    ) {
+        private val _state = MutableStateFlow(initialValue)
+        val state: StateFlow<Double> = _state.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                flow.collect { _state.value = it }
+            }
+        }
+
+        fun setValue(value: Double) {
+            _state.value = value
+            viewModelScope.launch {
+                try {
+                    saveOperation(value)
+                } catch (e: Exception) {
+                    // Add error handling if needed
+                }
+            }
         }
     }
 
-    fun setAccuracy(value: Double) {
-        _accuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveAccuracy(value)
+    private class FloatPreference(
+        initialValue: Float,
+        private val flow: Flow<Float>,
+        private val saveOperation: suspend (Float) -> Unit,
+        private val viewModelScope: kotlinx.coroutines.CoroutineScope
+    ) {
+        private val _state = MutableStateFlow(initialValue)
+        val state: StateFlow<Float> = _state.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                flow.collect { _state.value = it }
+            }
+        }
+
+        fun setValue(value: Float) {
+            _state.value = value
+            viewModelScope.launch {
+                try {
+                    saveOperation(value)
+                } catch (e: Exception) {
+                    // Add error handling if needed
+                }
+            }
         }
     }
 
-    fun setUseAltitude(value: Boolean) {
-        _useAltitude.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseAltitude(value)
-        }
-    }
+    // Preferences for Accuracy
+    private val _useAccuracyPreference = BooleanPreference(
+        DEFAULT_USE_ACCURACY,
+        preferencesRepository.getUseAccuracyFlow(),
+        preferencesRepository::saveUseAccuracy,
+        viewModelScope
+    )
+    val useAccuracy: StateFlow<Boolean> = _useAccuracyPreference.state
 
-    fun setAltitude(value: Double) {
-        _altitude.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveAltitude(value)
-        }
-    }
+    private val _accuracyPreference = DoublePreference(
+        DEFAULT_ACCURACY,
+        preferencesRepository.getAccuracyFlow(),
+        preferencesRepository::saveAccuracy,
+        viewModelScope
+    )
+    val accuracy: StateFlow<Double> = _accuracyPreference.state
 
-    fun setUseRandomize(value: Boolean) {
-        _useRandomize.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseRandomize(value)
-        }
-    }
+    // Preferences for Altitude
+    private val _useAltitudePreference = BooleanPreference(
+        DEFAULT_USE_ALTITUDE,
+        preferencesRepository.getUseAltitudeFlow(),
+        preferencesRepository::saveUseAltitude,
+        viewModelScope
+    )
+    val useAltitude: StateFlow<Boolean> = _useAltitudePreference.state
 
-    fun setRandomizeRadius(value: Double) {
-        _randomizeRadius.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveRandomizeRadius(value)
-        }
-    }
+    private val _altitudePreference = DoublePreference(
+        DEFAULT_ALTITUDE,
+        preferencesRepository.getAltitudeFlow(),
+        preferencesRepository::saveAltitude,
+        viewModelScope
+    )
+    val altitude: StateFlow<Double> = _altitudePreference.state
 
-    fun setUseVerticalAccuracy(value: Boolean) {
-        _useVerticalAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseVerticalAccuracy(value)
-        }
-    }
+    // Preferences for Randomize
+    private val _useRandomizePreference = BooleanPreference(
+        DEFAULT_USE_RANDOMIZE,
+        preferencesRepository.getUseRandomizeFlow(),
+        preferencesRepository::saveUseRandomize,
+        viewModelScope
+    )
+    val useRandomize: StateFlow<Boolean> = _useRandomizePreference.state
 
-    fun setVerticalAccuracy(value: Float) {
-        _verticalAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveVerticalAccuracy(value)
-        }
-    }
+    private val _randomizeRadiusPreference = DoublePreference(
+        DEFAULT_RANDOMIZE_RADIUS,
+        preferencesRepository.getRandomizeRadiusFlow(),
+        preferencesRepository::saveRandomizeRadius,
+        viewModelScope
+    )
+    val randomizeRadius: StateFlow<Double> = _randomizeRadiusPreference.state
 
-    fun setUseMeanSeaLevel(value: Boolean) {
-        _useMeanSeaLevel.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseMeanSeaLevel(value)
-        }
-    }
+    // Preferences for Vertical Accuracy
+    private val _useVerticalAccuracyPreference = BooleanPreference(
+        DEFAULT_USE_VERTICAL_ACCURACY,
+        preferencesRepository.getUseVerticalAccuracyFlow(),
+        preferencesRepository::saveUseVerticalAccuracy,
+        viewModelScope
+    )
+    val useVerticalAccuracy: StateFlow<Boolean> = _useVerticalAccuracyPreference.state
 
-    fun setMeanSeaLevel(value: Double) {
-        _meanSeaLevel.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveMeanSeaLevel(value)
-        }
-    }
+    private val _verticalAccuracyPreference = FloatPreference(
+        DEFAULT_VERTICAL_ACCURACY,
+        preferencesRepository.getVerticalAccuracyFlow(),
+        preferencesRepository::saveVerticalAccuracy,
+        viewModelScope
+    )
+    val verticalAccuracy: StateFlow<Float> = _verticalAccuracyPreference.state
 
-    fun setUseMeanSeaLevelAccuracy(value: Boolean) {
-        _useMeanSeaLevelAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseMeanSeaLevelAccuracy(value)
-        }
-    }
+    // Preferences for Mean Sea Level
+    private val _useMeanSeaLevelPreference = BooleanPreference(
+        DEFAULT_USE_MEAN_SEA_LEVEL,
+        preferencesRepository.getUseMeanSeaLevelFlow(),
+        preferencesRepository::saveUseMeanSeaLevel,
+        viewModelScope
+    )
+    val useMeanSeaLevel: StateFlow<Boolean> = _useMeanSeaLevelPreference.state
 
-    fun setMeanSeaLevelAccuracy(value: Float) {
-        _meanSeaLevelAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveMeanSeaLevelAccuracy(value)
-        }
-    }
+    private val _meanSeaLevelPreference = DoublePreference(
+        DEFAULT_MEAN_SEA_LEVEL,
+        preferencesRepository.getMeanSeaLevelFlow(),
+        preferencesRepository::saveMeanSeaLevel,
+        viewModelScope
+    )
+    val meanSeaLevel: StateFlow<Double> = _meanSeaLevelPreference.state
 
-    fun setUseSpeed(value: Boolean) {
-        _useSpeed.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseSpeed(value)
-        }
-    }
+    // Preferences for Mean Sea Level Accuracy
+    private val _useMeanSeaLevelAccuracyPreference = BooleanPreference(
+        DEFAULT_USE_MEAN_SEA_LEVEL_ACCURACY,
+        preferencesRepository.getUseMeanSeaLevelAccuracyFlow(),
+        preferencesRepository::saveUseMeanSeaLevelAccuracy,
+        viewModelScope
+    )
+    val useMeanSeaLevelAccuracy: StateFlow<Boolean> = _useMeanSeaLevelAccuracyPreference.state
 
-    fun setSpeed(value: Float) {
-        _speed.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveSpeed(value)
-        }
-    }
+    private val _meanSeaLevelAccuracyPreference = FloatPreference(
+        DEFAULT_MEAN_SEA_LEVEL_ACCURACY,
+        preferencesRepository.getMeanSeaLevelAccuracyFlow(),
+        preferencesRepository::saveMeanSeaLevelAccuracy,
+        viewModelScope
+    )
+    val meanSeaLevelAccuracy: StateFlow<Float> = _meanSeaLevelAccuracyPreference.state
 
-    fun setUseSpeedAccuracy(value: Boolean) {
-        _useSpeedAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveUseSpeedAccuracy(value)
-        }
-    }
+    // Preferences for Speed
+    private val _useSpeedPreference = BooleanPreference(
+        DEFAULT_USE_SPEED,
+        preferencesRepository.getUseSpeedFlow(),
+        preferencesRepository::saveUseSpeed,
+        viewModelScope
+    )
+    val useSpeed: StateFlow<Boolean> = _useSpeedPreference.state
 
-    fun setSpeedAccuracy(value: Float) {
-        _speedAccuracy.value = value
-        viewModelScope.launch {
-            preferencesRepository.saveSpeedAccuracy(value)
-        }
-    }
+    private val _speedPreference = FloatPreference(
+        DEFAULT_SPEED,
+        preferencesRepository.getSpeedFlow(),
+        preferencesRepository::saveSpeed,
+        viewModelScope
+    )
+    val speed: StateFlow<Float> = _speedPreference.state
+
+    // Preferences for Speed Accuracy
+    private val _useSpeedAccuracyPreference = BooleanPreference(
+        DEFAULT_USE_SPEED_ACCURACY,
+        preferencesRepository.getUseSpeedAccuracyFlow(),
+        preferencesRepository::saveUseSpeedAccuracy,
+        viewModelScope
+    )
+    val useSpeedAccuracy: StateFlow<Boolean> = _useSpeedAccuracyPreference.state
+
+    private val _speedAccuracyPreference = FloatPreference(
+        DEFAULT_SPEED_ACCURACY,
+        preferencesRepository.getSpeedAccuracyFlow(),
+        preferencesRepository::saveSpeedAccuracy,
+        viewModelScope
+    )
+    val speedAccuracy: StateFlow<Float> = _speedAccuracyPreference.state
+
+    // Setter methods for all preferences
+    fun setUseAccuracy(value: Boolean) = _useAccuracyPreference.setValue(value)
+    fun setAccuracy(value: Double) = _accuracyPreference.setValue(value)
+    fun setUseAltitude(value: Boolean) = _useAltitudePreference.setValue(value)
+    fun setAltitude(value: Double) = _altitudePreference.setValue(value)
+    fun setUseRandomize(value: Boolean) = _useRandomizePreference.setValue(value)
+    fun setRandomizeRadius(value: Double) = _randomizeRadiusPreference.setValue(value)
+    fun setUseVerticalAccuracy(value: Boolean) = _useVerticalAccuracyPreference.setValue(value)
+    fun setVerticalAccuracy(value: Float) = _verticalAccuracyPreference.setValue(value)
+    fun setUseMeanSeaLevel(value: Boolean) = _useMeanSeaLevelPreference.setValue(value)
+    fun setMeanSeaLevel(value: Double) = _meanSeaLevelPreference.setValue(value)
+    fun setUseMeanSeaLevelAccuracy(value: Boolean) = _useMeanSeaLevelAccuracyPreference.setValue(value)
+    fun setMeanSeaLevelAccuracy(value: Float) = _meanSeaLevelAccuracyPreference.setValue(value)
+    fun setUseSpeed(value: Boolean) = _useSpeedPreference.setValue(value)
+    fun setSpeed(value: Float) = _speedPreference.setValue(value)
+    fun setUseSpeedAccuracy(value: Boolean) = _useSpeedAccuracyPreference.setValue(value)
+    fun setSpeedAccuracy(value: Float) = _speedAccuracyPreference.setValue(value)
 }
