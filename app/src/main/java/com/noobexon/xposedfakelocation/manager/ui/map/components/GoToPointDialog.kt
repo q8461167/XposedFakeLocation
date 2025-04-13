@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noobexon.xposedfakelocation.manager.ui.map.MapViewModel
 
 @Composable
@@ -13,8 +14,10 @@ fun GoToPointDialog(
     onDismissRequest: () -> Unit,
     onGoToPoint: (latitude: Double, longitude: Double) -> Unit
 ) {
-    // Access the new GoToPoint state
-    val goToPointState by mapViewModel.goToPointState
+    // Access the UI state through StateFlow
+    val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
+    val goToPointState = uiState.goToPointState
+    
     val latitudeInput = goToPointState.first.value
     val longitudeInput = goToPointState.second.value
     val latitudeError = goToPointState.first.errorMessage
@@ -66,8 +69,6 @@ fun GoToPointDialog(
                 onClick = {
                     mapViewModel.validateAndGo { latitude, longitude ->
                         onGoToPoint(latitude, longitude)
-                        mapViewModel.clearGoToPointInputs()
-                        onDismissRequest()
                     }
                 }
             ) {

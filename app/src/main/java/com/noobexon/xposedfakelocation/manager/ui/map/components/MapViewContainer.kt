@@ -17,8 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noobexon.xposedfakelocation.manager.ui.map.MapViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -36,11 +38,13 @@ fun MapViewContainer(
     mapViewModel: MapViewModel
 ) {
     val context = LocalContext.current
+    val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Observe state from ViewModel
-    val isLoading by mapViewModel.isLoading
-    val lastClickedLocation by mapViewModel.lastClickedLocation
-    val isPlaying by mapViewModel.isPlaying
+    // Extract state from uiState
+    val isLoading = uiState.isLoading
+    val lastClickedLocation = uiState.lastClickedLocation
+    val isPlaying = uiState.isPlaying
+    val mapZoom = uiState.mapZoom
 
     // Remember MapView and overlays
     val mapView = rememberMapView(context)
@@ -55,7 +59,7 @@ fun MapViewContainer(
     HandleGoToPointEvent(mapView, mapViewModel)
     HandleMarkerUpdates(mapView, userMarker, lastClickedLocation)
     SetupMapClickListener(mapView, mapViewModel, isPlaying)
-    CenterMapOnUserLocation(mapView, locationOverlay, mapViewModel, lastClickedLocation)
+    CenterMapOnUserLocation(mapView, locationOverlay, mapViewModel, lastClickedLocation, mapZoom)
     ManageMapViewLifecycle(mapView, mapViewModel, locationOverlay)
 
     // Add MapListener to update zoom level
@@ -67,7 +71,9 @@ fun MapViewContainer(
             }
 
             override fun onZoom(event: ZoomEvent?): Boolean {
-                mapViewModel.mapZoom.value = mapView.zoomLevelDouble
+                // Update zoom state through proper ViewModel methods
+                // This will be handled by the ViewModel's state update logic
+                mapViewModel.updateMapZoom(mapView.zoomLevelDouble)
                 return true
             }
         }
@@ -218,13 +224,14 @@ private fun CenterMapOnUserLocation(
     mapView: MapView,
     locationOverlay: MyLocationNewOverlay,
     mapViewModel: MapViewModel,
-    lastClickedLocation: GeoPoint?
+    lastClickedLocation: GeoPoint?,
+    mapZoom: Double?
 ) {
     LaunchedEffect(mapView, lastClickedLocation) {
         if (lastClickedLocation != null) {
             // If marker exists, center on it using stored zoom level
-            val zoomLevel = mapViewModel.mapZoom.value ?: mapView.zoomLevelDouble
-            mapView.controller.setZoom(zoomLevel)
+            val zoom = mapZoom ?: mapView.zoomLevelDouble
+            mapView.controller.setZoom(zoom)
             mapView.controller.animateTo(lastClickedLocation)
             mapViewModel.setLoadingFinished()
         } else {
@@ -237,7 +244,7 @@ private fun CenterMapOnUserLocation(
                     mapViewModel.updateUserLocation(userLocation)
                     mapView.controller.setZoom(18.0)
                     mapView.controller.animateTo(userLocation)
-                    mapViewModel.mapZoom.value = 18.0 // Initialize mapZoom
+                    mapViewModel.updateMapZoom(18.0) // Initialize mapZoom
                     mapViewModel.setLoadingFinished()
                     return@LaunchedEffect
                 }
@@ -246,7 +253,7 @@ private fun CenterMapOnUserLocation(
             // If location is not available after timeout, set default location
             mapView.controller.setZoom(2.0)
             mapView.controller.setCenter(GeoPoint(0.0, 0.0))
-            mapViewModel.mapZoom.value = 2.0 // Initialize mapZoom
+            mapViewModel.updateMapZoom(2.0) // Initialize mapZoom
             mapViewModel.setLoadingFinished()
         }
     }

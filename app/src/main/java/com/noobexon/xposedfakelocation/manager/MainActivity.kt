@@ -6,18 +6,17 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.navigation.compose.rememberNavController
+import com.noobexon.xposedfakelocation.manager.ui.components.ErrorScreen
 import com.noobexon.xposedfakelocation.manager.ui.navigation.AppNavGraph
 import com.noobexon.xposedfakelocation.manager.ui.theme.XposedFakeLocationTheme
 import org.osmdroid.config.Configuration
-import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
-    private val tag = "MainActivity"
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     @SuppressLint("WorldReadableFiles")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,45 +29,26 @@ class MainActivity : ComponentActivity() {
             Configuration.getInstance().load(this, getPreferences(MODE_WORLD_READABLE))
         } catch (e: SecurityException) {
             isXposedModuleEnabled = false
-            Log.e(tag, "SecurityException: ${e.message}")
+            Log.e(TAG, "SecurityException: ${e.message}", e)
         } catch (e: Exception) {
             isXposedModuleEnabled = false
-            Log.e(tag, "Exception: ${e.message}")
+            Log.e(TAG, "Exception: ${e.message}", e)
         }
 
-        if (isXposedModuleEnabled) {
-            enableEdgeToEdge()
-            setContent {
-                XposedFakeLocationTheme {
+        enableEdgeToEdge()
+        
+        setContent {
+            XposedFakeLocationTheme {
+                if (isXposedModuleEnabled) {
                     val navController = rememberNavController()
                     AppNavGraph(navController = navController)
-                }
-            }
-        } else {
-            setContent {
-                XposedFakeLocationTheme {
-                    ErrorScreen()
+                } else {
+                    ErrorScreen(
+                        onDismiss = { finish() },
+                        onConfirm = { finish() }
+                    )
                 }
             }
         }
     }
-}
-
-@Composable
-fun ErrorScreen() {
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text("Module Not Active") },
-        text = {
-            Text( "XposedFakeLocation module is not active in your Xposed manager app. Please enable it and restart the app to continue." )
-        },
-        confirmButton = {
-            Button(onClick = {
-                exitProcess(0)
-            }) {
-                Text("OK")
-            }
-        },
-        dismissButton = null
-    )
 }

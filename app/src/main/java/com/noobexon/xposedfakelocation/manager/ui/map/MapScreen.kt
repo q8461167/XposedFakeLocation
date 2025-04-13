@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.noobexon.xposedfakelocation.data.model.FavoriteLocation
 import com.noobexon.xposedfakelocation.manager.ui.drawer.DrawerContent
@@ -26,11 +27,13 @@ fun MapScreen(
     mapViewModel: MapViewModel
 ) {
     val context = LocalContext.current
-
-    val isPlaying by mapViewModel.isPlaying
-    val isFabClickable by remember { derivedStateOf { mapViewModel.isFabClickable } }
-    val showGoToPointDialog by mapViewModel.showGoToPointDialog
-    val showAddToFavoritesDialog by mapViewModel.showAddToFavoritesDialog
+    val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Extract values from UI state
+    val isPlaying = uiState.isPlaying
+    val isFabClickable = uiState.isFabClickable
+    val showGoToPointDialog = uiState.showGoToPointDialog
+    val showAddToFavoritesDialog = uiState.showAddToFavoritesDialog
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -126,8 +129,9 @@ fun MapScreen(
                 FloatingActionButton(
                     onClick = {
                         if (isFabClickable) {
+                            val wasPlaying = uiState.isPlaying
                             mapViewModel.togglePlaying()
-                            if (mapViewModel.isPlaying.value) {
+                            if (!wasPlaying) {
                                 Toast.makeText(context, "Fake Location Set", Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Unset Fake Location", Toast.LENGTH_SHORT).show()
@@ -181,9 +185,9 @@ fun MapScreen(
 
         if (showAddToFavoritesDialog) {
             // Prefill coordinates from the last clicked location (marker)
-            val lastClickedLocation = mapViewModel.lastClickedLocation.value
+            val lastClickedLocation = uiState.lastClickedLocation
 
-            LaunchedEffect(Unit) {
+            LaunchedEffect(lastClickedLocation) {
                 mapViewModel.prefillCoordinatesFromMarker(
                     lastClickedLocation?.latitude,
                     lastClickedLocation?.longitude

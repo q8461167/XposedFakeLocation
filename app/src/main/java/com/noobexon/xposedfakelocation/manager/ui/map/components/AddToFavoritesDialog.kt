@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noobexon.xposedfakelocation.manager.ui.map.MapViewModel
 
 @Composable
@@ -15,8 +16,10 @@ fun AddToFavoritesDialog(
     onDismissRequest: () -> Unit,
     onAddFavorite: (name: String, latitude: Double, longitude: Double) -> Unit
 ) {
-    // Access the new FavoritesInputState
-    val addToFavoritesState by mapViewModel.addToFavoritesState
+    // Access UI state through StateFlow
+    val uiState by mapViewModel.uiState.collectAsStateWithLifecycle()
+    val addToFavoritesState = uiState.addToFavoritesState
+    
     val favoriteNameInput = addToFavoritesState.name.value
     val favoriteLatitudeInput = addToFavoritesState.latitude.value
     val favoriteLongitudeInput = addToFavoritesState.longitude.value
@@ -88,8 +91,6 @@ fun AddToFavoritesDialog(
                 onClick = {
                     mapViewModel.validateAndAddFavorite { name, latitude, longitude ->
                         onAddFavorite(name, latitude, longitude)
-                        mapViewModel.clearAddToFavoritesInputs()
-                        onDismissRequest()
                     }
                 }
             ) {

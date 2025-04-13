@@ -1,0 +1,7 @@
+ .../xposedfakelocation/manager/MainActivity.kt     |  52 [32m+++[m[31m----[m
+ .../xposedfakelocation/manager/ui/map/MapScreen.kt |  20 [32m+[m[31m--[m
+ .../manager/ui/map/MapViewModel.kt                 | 150 [32m++++++++++++++[m[31m-------[m
+ .../ui/map/components/AddToFavoritesDialog.kt      |   9 [32m+[m[31m-[m
+ .../manager/ui/map/components/GoToPointDialog.kt   |   9 [32m+[m[31m-[m
+ .../manager/ui/map/components/MapViewContainer.kt  |  29 [32m++[m[31m--[m
+ 6 files changed, 154 insertions(+), 115 deletions(-)
